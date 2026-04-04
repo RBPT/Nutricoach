@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const BASE_FOODS = [
@@ -40,7 +40,7 @@ const fmtTime = (iso) => { try { return new Date(iso).toLocaleTimeString([],{hou
 const fmtDate = (iso) => { try { return new Date(iso).toLocaleDateString([],{month:"short",day:"numeric"}); } catch(e){return "";} };
 
 const DEMO_ACCOUNTS = {
-  "coach@demo.com":   { password:"coach123",  role:"coach",  name:"Coach Alex", id:"coach1" },
+  "coach@demo.com":   { password:"coach123",  role:"coach",  name:"RBPT Coach", id:"coach1" },
   "sarah@demo.com":   { password:"client123", role:"client", name:"Sarah K.",    id:"client_sarah",   goals:{calories:1800,protein:140,carbs:180,fat:60}  },
   "mike@demo.com":    { password:"client123", role:"client", name:"Mike T.",     id:"client_mike",    goals:{calories:2400,protein:190,carbs:240,fat:80}  },
   "jessica@demo.com": { password:"client123", role:"client", name:"Jessica R.",  id:"client_jessica", goals:{calories:1600,protein:120,carbs:160,fat:55}  },
@@ -51,7 +51,7 @@ const CLIENT_LIST = Object.entries(DEMO_ACCOUNTS).filter(([,v])=>v.role==="clien
 const T = {
   bg:"#0a0a0f", bg2:"#0f0f1a", card:"rgba(255,255,255,0.04)", border:"rgba(255,255,255,0.08)",
   muted:"#6b7280", dim:"#4b5563", text:"#e5e7eb",
-  green:"#22c55e", blue:"#3b82f6", amber:"#f59e0b", red:"#ef4444", purple:"#a78bfa", orange:"#fb923c", pink:"#ec4899",
+  green:"#38bdf8", blue:"#6366f1", amber:"#f59e0b", red:"#ef4444", purple:"#a78bfa", orange:"#fb923c", pink:"#ec4899",
 };
 const cs  = { background:T.card, border:`1px solid ${T.border}`, borderRadius:16, padding:16, marginBottom:12 };
 const inp = { background:"rgba(255,255,255,0.06)", border:`1px solid ${T.border}`, borderRadius:10, padding:"10px 14px", color:T.text, fontSize:14, fontFamily:"'DM Sans',sans-serif", width:"100%", outline:"none", boxSizing:"border-box" };
@@ -391,7 +391,7 @@ function LoginScreen({onLogin}) {
   };
 
   const DEMO=[
-    {label:"🏋️ Coach Alex", email:"coach@demo.com",  pass:"coach123",  role:"Coach",  color:T.green},
+    {label:"🏋️ RBPT Coach", email:"coach@demo.com",  pass:"coach123",  role:"Coach",  color:T.green},
     {label:"👤 Sarah K.",    email:"sarah@demo.com",   pass:"client123", role:"Client", color:T.blue},
     {label:"👤 Mike T.",     email:"mike@demo.com",    pass:"client123", role:"Client", color:T.blue},
     {label:"👤 Jessica R.",  email:"jessica@demo.com", pass:"client123", role:"Client", color:T.blue},
@@ -402,9 +402,16 @@ function LoginScreen({onLogin}) {
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
       <div style={{width:"100%",maxWidth:360}}>
         <div style={{textAlign:"center",marginBottom:28}}>
-          <div style={{fontSize:40,marginBottom:8}}>💪</div>
-          <div style={{fontSize:28,fontWeight:700,color:T.text,letterSpacing:"-0.02em"}}>NutriCoach</div>
-          <div style={{fontSize:13,color:T.muted,marginTop:4}}>Coach & Client Nutrition Platform</div>
+          {/* RBPT Logo mark */}
+          <div style={{display:"inline-flex",alignItems:"center",gap:6,marginBottom:10}}>
+            <div style={{fontSize:36,fontWeight:900,letterSpacing:"-0.04em",color:"#fff",fontFamily:"'DM Sans',sans-serif"}}>RBPT</div>
+            <svg width="28" height="36" viewBox="0 0 28 36" fill="none">
+              <polygon points="16,0 4,20 14,20 10,36 26,14 16,14 22,0" fill="#38bdf8"/>
+              <polygon points="16,0 14,6 20,14 16,14 22,0" fill="#fff" opacity="0.5"/>
+            </svg>
+          </div>
+          <div style={{fontSize:11,fontWeight:700,color:"#38bdf8",letterSpacing:"0.18em",textTransform:"uppercase",marginBottom:2}}>Performance Coaching</div>
+          <div style={{fontSize:11,color:T.muted,marginTop:6}}>Nutrition Tracking Platform</div>
         </div>
 
         {/* One-tap demo login — primary way in */}
@@ -517,8 +524,8 @@ function CoachDashboard({coach,onLogout,setCoachMode}) {
       <div style={{padding:"20px 20px 0",background:`linear-gradient(180deg,${T.bg2} 0%,transparent 100%)`,marginBottom:16}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
           <div>
-            <div style={{fontSize:12,color:T.muted,marginBottom:2}}>Coach Dashboard</div>
-            <div style={{fontSize:20,fontWeight:700,letterSpacing:"-0.02em"}}>{coach.name} 🏋️</div>
+            <div style={{fontSize:12,color:"#38bdf8",fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:2}}>RBPT Performance Coaching</div>
+            <div style={{fontSize:20,fontWeight:700,letterSpacing:"-0.02em"}}>{coach.name} ⚡</div>
             <div style={{fontSize:11,color:T.muted,marginTop:2}}>{todayStr}</div>
           </div>
           <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}>
@@ -729,6 +736,229 @@ function CoachDashboard({coach,onLogout,setCoachMode}) {
 }
 
 
+// ─── ProgressGraph ────────────────────────────────────────────────────────────
+function ProgressGraph({userId,onClose}) {
+  const [log,setLog]=useState([]);
+  const [metric,setMetric]=useState("Weight");
+  const [newVal,setNewVal]=useState("");
+  const [saving,setSaving]=useState(false);
+
+  useEffect(()=>{ store.get(`progress_log:${userId}`).then(d=>setLog(d||[])); },[userId]);
+
+  const save=async()=>{
+    if(!newVal) return;
+    setSaving(true);
+    const entry={date:TODAY,dateStr:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),metric,value:parseFloat(newVal)};
+    const updated=[...log.filter(e=>!(e.date===TODAY&&e.metric===metric)),entry].sort((a,b)=>a.date.localeCompare(b.date));
+    await store.set(`progress_log:${userId}`,updated);
+    setLog(updated);
+    setNewVal("");
+    setSaving(false);
+  };
+
+  const metrics=["Weight","Body Fat %","Waist","Chest","Hips","Biceps"];
+  const filtered=log.filter(e=>e.metric===metric).slice(-12);
+  const vals=filtered.map(e=>e.value);
+  const minV=vals.length?Math.min(...vals)*0.97:0;
+  const maxV=vals.length?Math.max(...vals)*1.03:100;
+  const range=maxV-minV||1;
+  const W=320,H=140,PAD=10;
+  const toX=(i)=>PAD+(i/(Math.max(filtered.length-1,1)))*(W-PAD*2);
+  const toY=(v)=>H-PAD-((v-minV)/range)*(H-PAD*2);
+  const pts=filtered.map((e,i)=>({x:toX(i),y:toY(e.value),e}));
+  const pathD=pts.length>1?pts.map((p,i)=>i===0?`M${p.x},${p.y}`:`L${p.x},${p.y}`).join(" "):"";
+  const areaD=pts.length>1?`${pathD} L${pts[pts.length-1].x},${H} L${pts[0].x},${H} Z`:"";
+  const latest=filtered[filtered.length-1];
+  const prev=filtered[filtered.length-2];
+  const diff=latest&&prev?((latest.value-prev.value)>=0?"+":"")+((latest.value-prev.value).toFixed(1)):"";
+  const diffColor=metric==="Weight"||metric==="Body Fat %"||metric==="Waist"?(latest&&prev&&latest.value<prev.value?T.green:T.red):(latest&&prev&&latest.value>prev.value?T.green:T.red);
+
+  return (
+    <div style={{position:"fixed",inset:0,background:T.bg,zIndex:350,display:"flex",flexDirection:"column",maxWidth:420,margin:"0 auto"}}>
+      <div style={{padding:"20px 20px 0",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+        <div><div style={{fontSize:12,color:T.muted,marginBottom:2}}>Tracking</div><div style={{fontSize:20,fontWeight:700}}>Progress Graph 📈</div></div>
+        <button onClick={onClose} style={{background:"rgba(255,255,255,0.06)",border:`1px solid ${T.border}`,borderRadius:10,width:36,height:36,color:T.muted,fontSize:18,cursor:"pointer"}}>×</button>
+      </div>
+      <div style={{flex:1,overflowY:"auto",padding:"0 16px 32px"}}>
+        {/* Metric selector */}
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
+          {metrics.map(m=>(
+            <button key={m} onClick={()=>setMetric(m)} style={{background:metric===m?T.green:"rgba(255,255,255,0.06)",border:"none",borderRadius:8,padding:"6px 12px",color:metric===m?"#000":T.muted,fontSize:12,fontWeight:600,cursor:"pointer",transition:"all 0.2s"}}>{m}</button>
+          ))}
+        </div>
+
+        {/* Chart card */}
+        <div style={{...cs,padding:"16px 12px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
+            <div>
+              <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em"}}>{metric}</div>
+              {latest&&<div style={{fontSize:28,fontWeight:700,color:T.green,fontFamily:"'DM Mono',monospace",marginTop:2}}>{latest.value}<span style={{fontSize:13,color:T.muted,fontWeight:400}}>{metric==="Body Fat %"?"%":" lbs"}</span></div>}
+              {diff&&<div style={{fontSize:13,fontWeight:600,color:diffColor}}>{diff} from last entry</div>}
+            </div>
+            {filtered.length===0&&<div style={{fontSize:12,color:T.dim,padding:"20px 0",textAlign:"center",width:"100%"}}>No data yet — log your first entry below</div>}
+          </div>
+          {filtered.length>1&&(
+            <svg viewBox={`0 0 ${W} ${H}`} style={{width:"100%",height:H,overflow:"visible"}}>
+              <defs>
+                <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={T.green} stopOpacity="0.3"/>
+                  <stop offset="100%" stopColor={T.green} stopOpacity="0"/>
+                </linearGradient>
+              </defs>
+              {/* Grid lines */}
+              {[0,0.25,0.5,0.75,1].map(p=>(
+                <line key={p} x1={PAD} y1={PAD+(p*(H-PAD*2))} x2={W-PAD} y2={PAD+(p*(H-PAD*2))} stroke="rgba(255,255,255,0.05)" strokeWidth="1"/>
+              ))}
+              {/* Area fill */}
+              <path d={areaD} fill="url(#grad)"/>
+              {/* Line */}
+              <path d={pathD} fill="none" stroke={T.green} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+              {/* Dots */}
+              {pts.map((p,i)=>(
+                <circle key={i} cx={p.x} cy={p.y} r="4" fill={T.green} stroke={T.bg2} strokeWidth="2"/>
+              ))}
+            </svg>
+          )}
+          {filtered.length>0&&(
+            <div style={{display:"flex",justifyContent:"space-between",marginTop:6}}>
+              <div style={{fontSize:10,color:T.dim}}>{filtered[0]?.dateStr}</div>
+              <div style={{fontSize:10,color:T.dim}}>{filtered[filtered.length-1]?.dateStr}</div>
+            </div>
+          )}
+        </div>
+
+        {/* Log new entry */}
+        <div style={cs}>
+          <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10}}>Log Today's {metric}</div>
+          <div style={{display:"flex",gap:8}}>
+            <input type="number" value={newVal} onChange={e=>setNewVal(e.target.value)} placeholder={metric==="Body Fat %"?"e.g. 18.5":"e.g. 174.2"}
+              style={{...inp,flex:1,fontFamily:"'DM Mono',monospace"}}/>
+            <button onClick={save} disabled={!newVal||saving} style={{...btn(newVal?T.green:"rgba(255,255,255,0.07)",newVal?"#000":T.dim),padding:"10px 16px",flexShrink:0}}>{saving?"…":"Log"}</button>
+          </div>
+        </div>
+
+        {/* History list */}
+        {filtered.length>0&&(
+          <div style={cs}>
+            <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10}}>History</div>
+            {[...filtered].reverse().map((e,i)=>(
+              <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderTop:i>0?`1px solid rgba(255,255,255,0.05)`:"none"}}>
+                <div style={{fontSize:13,color:T.muted}}>{e.dateStr}</div>
+                <div style={{fontSize:14,fontWeight:700,color:T.green,fontFamily:"'DM Mono',monospace"}}>{e.value}{metric==="Body Fat %"?"%":""}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── BarcodeScanner ────────────────────────────────────────────────────────────
+function BarcodeScanner({onFood,onClose}) {
+  const [status,setStatus]=useState("idle"); // idle|scanning|loading|found|error
+  const [scannedFood,setScannedFood]=useState(null);
+  const [errMsg,setErrMsg]=useState("");
+  const [manual,setManual]=useState("");
+  const videoRef=useRef(null);
+  const scannerRef=useRef(null);
+  const streamRef=useRef(null);
+
+  const stop=useCallback(()=>{
+    if(scannerRef.current){try{scannerRef.current.reset();}catch(e){}scannerRef.current=null;}
+    if(streamRef.current){streamRef.current.getTracks().forEach(t=>t.stop());streamRef.current=null;}
+  },[]);
+
+  const lookup=useCallback(async(barcode)=>{
+    setStatus("loading"); stop();
+    try{
+      const res=await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
+      const data=await res.json();
+      if(data.status===1&&data.product){
+        const p=data.product,n=p.nutriments||{};
+        setScannedFood({id:Date.now(),name:p.product_name||"Unknown Product",cal100:Math.round(n["energy-kcal_100g"]||0),pro100:Math.round((n.proteins_100g||0)*10)/10,carb100:Math.round((n.carbohydrates_100g||0)*10)/10,fat100:Math.round((n.fat_100g||0)*10)/10,brand:p.brands||"",unit:"g",defaultGrams:parseInt(p.serving_size)||100});
+        setStatus("found");
+      } else { setErrMsg("Product not found in database."); setStatus("error"); }
+    } catch(e){ setErrMsg("Network error — try manual entry."); setStatus("error"); }
+  },[stop]);
+
+  const startScan=useCallback(async()=>{
+    setStatus("scanning"); setErrMsg(""); setScannedFood(null);
+    try{
+      const ZXing=await import("https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/esm/index.min.js");
+      const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
+      streamRef.current=stream;
+      if(videoRef.current){videoRef.current.srcObject=stream;videoRef.current.play();}
+      const reader=new ZXing.BrowserMultiFormatReader();
+      scannerRef.current=reader;
+      reader.decodeFromStream(stream,videoRef.current,r=>{if(r)lookup(r.getText());});
+    } catch(e){
+      setErrMsg(e.name==="NotAllowedError"?"Camera permission denied. Use manual entry below.":"Could not start camera. Use manual entry below.");
+      setStatus("error");
+    }
+  },[lookup]);
+
+  useEffect(()=>{ startScan(); return()=>stop(); },[]);
+
+  return (
+    <div style={{position:"fixed",inset:0,background:T.bg,zIndex:400,display:"flex",flexDirection:"column",maxWidth:420,margin:"0 auto"}}>
+      <div style={{padding:"20px 20px 0",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+        <div><div style={{fontSize:12,color:T.muted,marginBottom:2}}>Food Search</div><div style={{fontSize:20,fontWeight:700}}>Barcode Scanner ⬛</div></div>
+        <button onClick={onClose} style={{background:"rgba(255,255,255,0.06)",border:`1px solid ${T.border}`,borderRadius:10,width:36,height:36,color:T.muted,fontSize:18,cursor:"pointer"}}>×</button>
+      </div>
+      <div style={{flex:1,display:"flex",flexDirection:"column",padding:"0 16px 24px",gap:14}}>
+        {(status==="scanning"||status==="loading")&&(
+          <div style={{position:"relative",borderRadius:16,overflow:"hidden",background:"#000",aspectRatio:"4/3"}}>
+            <video ref={videoRef} style={{width:"100%",height:"100%",objectFit:"cover"}} muted playsInline/>
+            <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+              <div style={{position:"relative",width:"65%",aspectRatio:"3/2"}}>
+                {[{top:0,left:0,borderTop:`3px solid ${T.green}`,borderLeft:`3px solid ${T.green}`},{top:0,right:0,borderTop:`3px solid ${T.green}`,borderRight:`3px solid ${T.green}`},{bottom:0,left:0,borderBottom:`3px solid ${T.green}`,borderLeft:`3px solid ${T.green}`},{bottom:0,right:0,borderBottom:`3px solid ${T.green}`,borderRight:`3px solid ${T.green}`}].map((s,i)=>(
+                  <div key={i} style={{position:"absolute",width:22,height:22,borderRadius:2,...s}}/>
+                ))}
+                {status==="scanning"&&<div style={{position:"absolute",left:0,right:0,height:2,background:`linear-gradient(90deg,transparent,${T.green},transparent)`,animation:"scanline 1.8s ease-in-out infinite"}}/>}
+              </div>
+            </div>
+            {status==="loading"&&<div style={{position:"absolute",inset:0,background:"rgba(0,0,0,0.75)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:10}}><div style={{width:32,height:32,border:`3px solid rgba(34,197,94,0.2)`,borderTop:`3px solid ${T.green}`,borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/><div style={{fontSize:13,color:T.green}}>Looking up product…</div></div>}
+          </div>
+        )}
+        {status==="found"&&scannedFood&&(
+          <div style={{...cs,background:"rgba(34,197,94,0.06)",border:"1px solid rgba(34,197,94,0.25)",animation:"fadeUp 0.3s ease"}}>
+            <div style={{display:"flex",gap:10,alignItems:"flex-start",marginBottom:12}}>
+              <div style={{width:36,height:36,borderRadius:"50%",background:"rgba(34,197,94,0.15)",border:`2px solid ${T.green}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>✓</div>
+              <div><div style={{fontWeight:700,fontSize:15}}>{scannedFood.name}</div>{scannedFood.brand&&<div style={{fontSize:11,color:T.muted}}>{scannedFood.brand}</div>}</div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:7,marginBottom:14}}>
+              {[{l:"Cal",v:scannedFood.cal100,c:T.green,u:""},{l:"Protein",v:scannedFood.pro100,c:T.blue,u:"g"},{l:"Carbs",v:scannedFood.carb100,c:T.amber,u:"g"},{l:"Fat",v:scannedFood.fat100,c:T.red,u:"g"}].map(m=>(
+                <div key={m.l} style={{background:`${m.c}12`,borderRadius:9,padding:"8px 4px",textAlign:"center"}}>
+                  <div style={{fontSize:14,fontWeight:700,color:m.c,fontFamily:"'DM Mono',monospace"}}>{m.v}{m.u}</div>
+                  <div style={{fontSize:9,color:T.muted}}>{m.l}</div>
+                </div>
+              ))}
+            </div>
+            <button onClick={()=>onFood(scannedFood)} style={{...btn(),width:"100%",padding:12,fontSize:14}}>Set Serving & Add to Diary</button>
+          </div>
+        )}
+        {status==="error"&&(
+          <div style={{textAlign:"center",padding:"16px 0"}}>
+            <div style={{fontSize:13,color:T.red,marginBottom:14}}>{errMsg}</div>
+            <button onClick={startScan} style={{background:"rgba(34,197,94,0.15)",border:`1px solid rgba(34,197,94,0.3)`,borderRadius:10,padding:"9px 20px",color:T.green,fontSize:13,fontWeight:600,cursor:"pointer"}}>Try Again</button>
+          </div>
+        )}
+        <div style={{...cs}}>
+          <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10}}>Enter Barcode Manually</div>
+          <div style={{display:"flex",gap:8}}>
+            <input value={manual} onChange={e=>setManual(e.target.value.replace(/\D/g,""))} placeholder="e.g. 9300650104894" maxLength={14}
+              style={{flex:1,background:"rgba(255,255,255,0.06)",border:`1px solid ${T.border}`,borderRadius:10,padding:"10px 12px",color:T.text,fontSize:14,fontFamily:"'DM Mono',monospace",outline:"none"}}/>
+            <button onClick={()=>manual.length>=8&&lookup(manual)} disabled={manual.length<8}
+              style={{...btn(manual.length>=8?T.green:"rgba(255,255,255,0.06)",manual.length>=8?"#000":T.dim),padding:"10px 14px",flexShrink:0}}>Look Up</button>
+          </div>
+        </div>
+      </div>
+      <style>{`@keyframes scanline{0%,100%{top:8%}50%{top:86%}} @keyframes spin{to{transform:rotate(360deg)}} @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}`}</style>
+    </div>
+  );
+}
+
 // ─── RecipeBuilder ────────────────────────────────────────────────────────────
 function RecipeBuilder({recipes,setRecipes,onClose,onLogRecipe,activeMeal,allFoods}){
   const [view,setView]=useState("list");
@@ -763,6 +993,8 @@ function ClientApp({user,onLogout,hideSignOut,setCoachMode}) {
   const [customFoods,setCustomFoods]=useState([]);
   const [recipes,setRecipes]=useState([]);
   const [showRecipes,setShowRecipes]=useState(false);
+  const [showScanner,setShowScanner]=useState(false);
+  const [showGraph,setShowGraph]=useState(false);
   const [showMsg,setShowMsg]=useState(false);
   const [showCheckin,setShowCheckin]=useState(false);
   const [showPhotos,setShowPhotos]=useState(false);
@@ -858,11 +1090,12 @@ function ClientApp({user,onLogout,hideSignOut,setCoachMode}) {
             <div style={{padding:"0 16px"}}>
               {/* Coach quick actions — hide when coach is in personal mode */}
               {!hideSignOut && (
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:12}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:12}}>
                 {[
                   {l:"💬 Coach",bg:"rgba(139,92,246,0.12)",c:T.purple,fn:()=>setShowMsg(true),badge:unreadMsgs},
                   {l:"📋 Check-in",bg:"rgba(59,130,246,0.10)",c:T.blue,fn:()=>setShowCheckin(true)},
                   {l:"📸 Photos",bg:"rgba(236,72,153,0.10)",c:T.pink,fn:()=>setShowPhotos(true)},
+                  {l:"📈 Progress",bg:"rgba(34,197,94,0.10)",c:T.green,fn:()=>setShowGraph(true)},
                 ].map(a=>(
                   <button key={a.l} onClick={a.fn} style={{position:"relative",background:a.bg,border:`1px solid ${a.c}33`,borderRadius:12,padding:"10px 6px",color:a.c,fontSize:11,fontWeight:600,cursor:"pointer"}}>
                     {a.l}
@@ -1006,6 +1239,7 @@ function ClientApp({user,onLogout,hideSignOut,setCoachMode}) {
               <div style={{fontWeight:700,fontSize:15}}>Add to {activeMeal}</div>
               <div style={{display:"flex",gap:7,alignItems:"center"}}>
                 <button onClick={()=>setShowRecipes(true)} style={{background:"rgba(139,92,246,0.15)",border:"1px solid rgba(139,92,246,0.3)",borderRadius:8,padding:"5px 9px",color:T.purple,fontSize:11,fontWeight:600,cursor:"pointer"}}>🍳 Recipes</button>
+                <button onClick={()=>setShowScanner(true)} style={{background:"rgba(34,197,94,0.12)",border:"1px solid rgba(34,197,94,0.25)",borderRadius:8,padding:"5px 9px",color:T.green,fontSize:11,fontWeight:600,cursor:"pointer"}}>⬛ Scan</button>
                 <button onClick={()=>{setShowSearch(false);setSearchQuery("");}} style={{background:"none",border:"none",color:T.muted,fontSize:22,cursor:"pointer"}}>×</button>
               </div>
             </div>
@@ -1027,6 +1261,8 @@ function ClientApp({user,onLogout,hideSignOut,setCoachMode}) {
 
       {pickingFood&&<GramPicker food={pickingFood} onConfirm={addFood} onClose={()=>setPickingFood(null)}/>}
       {showRecipes&&<RecipeBuilder recipes={recipes} setRecipes={setRecipes} onClose={()=>setShowRecipes(false)} onLogRecipe={logRecipe} activeMeal={activeMeal} allFoods={allFoods}/>}
+      {showScanner&&<BarcodeScanner onFood={f=>{setPickingFood(f);setShowScanner(false);}} onClose={()=>setShowScanner(false)}/>}
+      {showGraph&&<ProgressGraph userId={user.id} onClose={()=>setShowGraph(false)}/>}
       {showMsg&&<MessagingPanel myId={user.id} myName={user.name} otherIds={["coach1"]} isCoach={false} onClose={()=>{setShowMsg(false);setUnreadMsgs(0);}}/>}
       {showCheckin&&<WeeklyCheckIn userId={user.id} onClose={()=>setShowCheckin(false)}/>}
       {showPhotos&&<ProgressPhotos userId={user.id} isCoach={false} onClose={()=>setShowPhotos(false)}/>}
@@ -1058,7 +1294,7 @@ export default function App() {
         <div style={{position:"relative"}}>
           <div style={{position:"fixed",top:12,left:"50%",transform:"translateX(-50%)",zIndex:900,background:"rgba(10,10,15,0.96)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:40,padding:"4px 5px",display:"flex",gap:3,boxShadow:"0 4px 24px rgba(0,0,0,0.6)"}}>
             <button onClick={()=>setCoachMode("coaching")} style={{background:"rgba(255,255,255,0.06)",border:"none",borderRadius:32,padding:"6px 14px",color:"#9ca3af",fontSize:12,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}}>🏋️ Coach View</button>
-            <button onClick={()=>setCoachMode("personal")} style={{background:"#22c55e",border:"none",borderRadius:32,padding:"6px 14px",color:"#000",fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>👤 My Tracking</button>
+            <button onClick={()=>setCoachMode("personal")} style={{background:"#38bdf8",border:"none",borderRadius:32,padding:"6px 14px",color:"#000",fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>👤 My Tracking</button>
           </div>
           <div style={{height:52}}/>
           <ClientApp user={coachAsUser} onLogout={()=>setSession(null)} hideSignOut={true}/>
