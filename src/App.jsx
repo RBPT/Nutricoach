@@ -1501,3 +1501,4 @@ export default function App() {
   }
 
   return <ClientApp user={session} onLogout={()=>setSession(null)}/>;
+}
