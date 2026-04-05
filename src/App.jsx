@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useRef } from "react";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const BASE_FOODS = [
@@ -960,7 +960,7 @@ function BarcodeScanner({onFood,onClose}) {
 }
 
 // ─── RecipeBuilder ────────────────────────────────────────────────────────────
-function RecipeBuilder({recipes,setRecipes,onClose,onLogRecipe,activeMeal,allFoods}){
+function RecipeBuilder({recipes,setRecipes,onClose,onLogRecipe,activeMeal,allFoods,recentFoods}) {
   const [view,setView]=useState("list");
   const [editRec,setEditRec]=useState(null);
   const [rName,setRName]=useState("");
@@ -969,13 +969,183 @@ function RecipeBuilder({recipes,setRecipes,onClose,onLogRecipe,activeMeal,allFoo
   const [sq,setSq]=useState("");
   const [pickFood,setPickFood]=useState(null);
   const [srvToLog,setSrvToLog]=useState(1);
+  const [showScannerInner,setShowScannerInner]=useState(false);
+
   const filtered=allFoods.filter(f=>f.name.toLowerCase().includes(sq.toLowerCase()));
   const totals=ingredients.reduce((a,i)=>({calories:a.calories+i.calories,protein:a.protein+i.protein,carbs:a.carbs+i.carbs,fat:a.fat+i.fat}),{calories:0,protein:0,carbs:0,fat:0});
   const perSrv=servings>0?{calories:Math.round(totals.calories/servings),protein:Math.round(totals.protein/servings*10)/10,carbs:Math.round(totals.carbs/servings*10)/10,fat:Math.round(totals.fat/servings*10)/10}:totals;
-  const save=()=>{if(!rName.trim()||!ingredients.length)return;const r={id:editRec?.id||Date.now(),name:rName,servings,ingredients,totals,perServing:perSrv,created:editRec?.created||new Date().toLocaleDateString()};setRecipes(p=>editRec?p.map(x=>x.id===editRec.id?r:x):[...p,r]);setView("list");setRName("");setServings(4);setIngredients([]);setEditRec(null);};
+
+  const save=()=>{
+    if(!rName.trim()||!ingredients.length) return;
+    const r={id:editRec?.id||Date.now(),name:rName,servings,ingredients,totals,perServing:perSrv,created:editRec?.created||new Date().toLocaleDateString()};
+    setRecipes(p=>editRec?p.map(x=>x.id===editRec.id?r:x):[...p,r]);
+    setView("list"); setRName(""); setServings(4); setIngredients([]); setEditRec(null);
+  };
   const startEdit=r=>{setEditRec(r);setRName(r.name);setServings(r.servings);setIngredients(r.ingredients);setView("create");};
-  const MRow=({o})=>(<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:6}}>{[{l:"Cal",v:o.calories,c:T.green,u:""},{l:"Protein",v:o.protein,c:T.blue,u:"g"},{l:"Carbs",v:o.carbs,c:T.amber,u:"g"},{l:"Fat",v:o.fat,c:T.red,u:"g"}].map(m=>(<div key={m.l} style={{textAlign:"center"}}><div style={{fontSize:14,fontWeight:700,color:m.c,fontFamily:"DM Mono,monospace"}}>{m.v}{m.u}</div><div style={{fontSize:9,color:T.muted}}>{m.l}</div></div>))}</div>);
-  return(<div style={{position:"fixed",inset:0,background:T.bg,zIndex:350,display:"flex",flexDirection:"column",maxWidth:420,margin:"0 auto"}}><div style={{padding:"20px 20px 0",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}><div>{view!=="list"&&<button onClick={()=>{setView("list");setRName("");setServings(4);setIngredients([]);setEditRec(null);}} style={{background:"none",border:"none",color:T.muted,fontSize:13,cursor:"pointer",padding:"0 0 4px",display:"block"}}>← Back</button>}<div style={{fontSize:20,fontWeight:700}}>{view==="list"?"🍳 Recipes":view==="create"?(editRec?"Edit Recipe":"New Recipe"):"Recipe"}</div></div><div style={{display:"flex",gap:8}}>{view==="list"&&<button onClick={()=>setView("create")} style={btn()}>+ New</button>}<button onClick={onClose} style={{background:"rgba(255,255,255,0.06)",border:`1px solid ${T.border}`,borderRadius:10,width:36,height:36,color:T.muted,fontSize:18,cursor:"pointer"}}>×</button></div></div><div style={{flex:1,overflowY:"auto",padding:"0 16px 32px"}}>{view==="list"&&(<>{recipes.length===0&&<div style={{textAlign:"center",padding:"50px 0",color:T.dim}}><div style={{fontSize:44,marginBottom:10}}>🍳</div><div style={{fontSize:14,color:T.muted}}>No recipes yet — tap + New</div></div>}{recipes.map(r=>(<div key={r.id} style={cs}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}><div><div style={{fontWeight:700,fontSize:15}}>{r.name}</div><div style={{fontSize:11,color:T.muted}}>{r.servings} servings · {r.ingredients.length} ingredients</div></div><button onClick={()=>{setEditRec(r);setSrvToLog(1);setView("detail");}} style={{background:"rgba(255,255,255,0.06)",border:"none",borderRadius:8,padding:"5px 10px",color:T.muted,fontSize:12,cursor:"pointer"}}>View</button></div><MRow o={r.perServing}/>{activeMeal&&<button onClick={()=>onLogRecipe(r,1)} style={{...btn(),marginTop:10,width:"100%",fontSize:12,padding:"8px"}}>Log 1 serving → {activeMeal}</button>}</div>))}</>)}{view==="create"&&(<><div style={cs}><div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>Recipe Name</div><input value={rName} onChange={e=>setRName(e.target.value)} placeholder="e.g. Meal Prep Bowl" style={inp}/></div><div style={cs}><div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>Total Servings</div><div style={{display:"flex",alignItems:"center",gap:14}}><button onClick={()=>setServings(s=>Math.max(1,s-1))} style={{width:34,height:34,borderRadius:8,background:"rgba(255,255,255,0.08)",border:"none",color:T.text,fontSize:18,cursor:"pointer"}}>−</button><div style={{fontSize:22,fontWeight:700,fontFamily:"DM Mono,monospace",minWidth:32,textAlign:"center"}}>{servings}</div><button onClick={()=>setServings(s=>s+1)} style={{width:34,height:34,borderRadius:8,background:"rgba(255,255,255,0.08)",border:"none",color:T.text,fontSize:18,cursor:"pointer"}}>+</button><div style={{fontSize:13,color:T.muted}}>servings</div></div></div><div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>Ingredients ({ingredients.length})</div>{ingredients.map((ing,i)=>(<div key={i} style={{...cs,display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:13,fontWeight:600}}>{ing.name}</div><div style={{fontSize:11,color:T.muted}}>{ing.grams}{ing.unit} · {ing.calories} kcal</div></div><button onClick={()=>setIngredients(p=>p.filter((_,j)=>j!==i))} style={{background:"none",border:"none",color:T.dim,fontSize:18,cursor:"pointer"}}>×</button></div>))}<div style={cs}><div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>Add Ingredient</div><input value={sq} onChange={e=>setSq(e.target.value)} placeholder="Search foods…" style={{...inp,marginBottom:8}}/><div style={{maxHeight:160,overflowY:"auto"}}>{sq&&filtered.map(f=>(<button key={f.id} onClick={()=>{setPickFood(f);setSq("");}} style={{width:"100%",background:"none",border:"none",borderBottom:`1px solid rgba(255,255,255,0.05)`,padding:"8px 0",cursor:"pointer",textAlign:"left",display:"flex",justifyContent:"space-between"}}><div style={{fontSize:13,color:T.text}}>{f.name}{f.custom?" ⭐":""}</div><div style={{fontSize:11,color:T.green,fontFamily:"DM Mono,monospace"}}>{f.cal100}/100{f.unit}</div></button>))}</div></div>{ingredients.length>0&&<div style={{...cs,background:"rgba(34,197,94,0.05)",border:"1px solid rgba(34,197,94,0.15)"}}><div style={{fontSize:11,color:T.green,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10}}>Per Serving</div><MRow o={perSrv}/></div>}<button onClick={save} disabled={!rName.trim()||!ingredients.length} style={{...btn(rName.trim()&&ingredients.length?T.green:"rgba(255,255,255,0.08)",rName.trim()&&ingredients.length?"#000":T.dim),width:"100%",padding:13,fontSize:14,marginTop:4}}>{editRec?"Save Changes":"Save Recipe"}</button></>)}{view==="detail"&&editRec&&(<><div style={{...cs,background:"rgba(34,197,94,0.05)",border:"1px solid rgba(34,197,94,0.15)"}}><div style={{fontWeight:700,fontSize:16,marginBottom:2}}>{editRec.name}</div><div style={{fontSize:12,color:T.muted,marginBottom:10}}>{editRec.servings} servings</div><MRow o={editRec.perServing}/></div>{editRec.ingredients.map((ing,i)=>(<div key={i} style={{...cs,display:"flex",justifyContent:"space-between"}}><div style={{fontSize:13,fontWeight:500}}>{ing.name}</div><div style={{fontSize:12,color:T.muted,fontFamily:"DM Mono,monospace"}}>{ing.grams}{ing.unit}</div></div>))}{activeMeal&&<div style={cs}><div style={{fontSize:12,color:T.muted,marginBottom:10}}>Log to {activeMeal}</div><div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}><button onClick={()=>setSrvToLog(s=>Math.max(0.5,Math.round((s-0.5)*2)/2))} style={{width:34,height:34,borderRadius:8,background:"rgba(255,255,255,0.08)",border:"none",color:T.text,fontSize:18,cursor:"pointer"}}>−</button><div style={{fontSize:20,fontWeight:700,fontFamily:"DM Mono,monospace",minWidth:32,textAlign:"center"}}>{srvToLog}</div><button onClick={()=>setSrvToLog(s=>Math.round((s+0.5)*2)/2)} style={{width:34,height:34,borderRadius:8,background:"rgba(255,255,255,0.08)",border:"none",color:T.text,fontSize:18,cursor:"pointer"}}>+</button></div><button onClick={()=>onLogRecipe(editRec,srvToLog)} style={{...btn(),width:"100%",padding:11,fontSize:13}}>Log {srvToLog} serving{srvToLog!==1?"s":""} → {activeMeal}</button></div>}<div style={{display:"flex",gap:8,marginTop:4}}><button onClick={()=>startEdit(editRec)} style={{...btn("rgba(255,255,255,0.07)",T.muted),flex:1,padding:10}}>Edit</button><button onClick={()=>{setRecipes(p=>p.filter(r=>r.id!==editRec.id));setView("list");}} style={{...btn("rgba(239,68,68,0.12)",T.red),flex:1,padding:10}}>Delete</button></div></>)}</div>{pickFood&&<GramPicker food={pickFood} onConfirm={s=>{setIngredients(p=>[...p,{...s,uid:Date.now()}]);setPickFood(null);}} onClose={()=>setPickFood(null)}/>}</div>);
+  const addIngredient=f=>{setPickFood(f);setSq("");};
+
+  const MRow=({o})=>(
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:6}}>
+      {[{l:"Cal",v:o.calories,c:T.green,u:""},{l:"Protein",v:o.protein,c:T.blue,u:"g"},{l:"Carbs",v:o.carbs,c:T.amber,u:"g"},{l:"Fat",v:o.fat,c:T.red,u:"g"}].map(m=>(
+        <div key={m.l} style={{textAlign:"center"}}>
+          <div style={{fontSize:14,fontWeight:700,color:m.c,fontFamily:"'DM Mono',monospace"}}>{m.v}{m.u}</div>
+          <div style={{fontSize:9,color:T.muted}}>{m.l}</div>
+        </div>
+      ))}
+    </div>
+  );
+
+  return (
+    <div style={{position:"fixed",inset:0,background:T.bg,zIndex:350,display:"flex",flexDirection:"column",maxWidth:420,margin:"0 auto"}}>
+      {/* Header */}
+      <div style={{padding:"20px 20px 0",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+        <div>
+          {view!=="list"&&<button onClick={()=>{setView("list");setRName("");setServings(4);setIngredients([]);setEditRec(null);}} style={{background:"none",border:"none",color:T.muted,fontSize:13,cursor:"pointer",padding:"0 0 4px",display:"block"}}>← Back</button>}
+          <div style={{fontSize:20,fontWeight:700}}>{view==="list"?"🍳 Recipes":view==="create"?(editRec?"Edit Recipe":"New Recipe"):"Recipe"}</div>
+        </div>
+        <div style={{display:"flex",gap:8}}>
+          {view==="list"&&<button onClick={()=>setView("create")} style={btn()}>+ New</button>}
+          <button onClick={onClose} style={{background:"rgba(255,255,255,0.06)",border:`1px solid ${T.border}`,borderRadius:10,width:36,height:36,color:T.muted,fontSize:18,cursor:"pointer"}}>×</button>
+        </div>
+      </div>
+
+      <div style={{flex:1,overflowY:"auto",padding:"0 16px 32px"}}>
+        {/* LIST VIEW */}
+        {view==="list"&&(
+          <>
+            {recipes.length===0&&<div style={{textAlign:"center",padding:"50px 0",color:T.dim}}><div style={{fontSize:44,marginBottom:10}}>🍳</div><div style={{fontSize:14,color:T.muted}}>No recipes yet — tap + New</div></div>}
+            {recipes.map(r=>(
+              <div key={r.id} style={cs}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+                  <div><div style={{fontWeight:700,fontSize:15}}>{r.name}</div><div style={{fontSize:11,color:T.muted}}>{r.servings} servings · {r.ingredients.length} ingredients</div></div>
+                  <button onClick={()=>{setEditRec(r);setSrvToLog(1);setView("detail");}} style={{background:"rgba(255,255,255,0.06)",border:"none",borderRadius:8,padding:"5px 10px",color:T.muted,fontSize:12,cursor:"pointer"}}>View</button>
+                </div>
+                <MRow o={r.perServing}/>
+                {activeMeal&&<button onClick={()=>onLogRecipe(r,1)} style={{...btn(),marginTop:10,width:"100%",fontSize:12,padding:"8px"}}>Log 1 serving → {activeMeal}</button>}
+              </div>
+            ))}
+          </>
+        )}
+
+        {/* CREATE VIEW */}
+        {view==="create"&&(
+          <>
+            <div style={cs}>
+              <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>Recipe Name</div>
+              <input value={rName} onChange={e=>setRName(e.target.value)} placeholder="e.g. Meal Prep Bowl" style={inp}/>
+            </div>
+
+            <div style={cs}>
+              <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>Total Servings</div>
+              <div style={{display:"flex",alignItems:"center",gap:14}}>
+                <button onClick={()=>setServings(s=>Math.max(1,s-1))} style={{width:34,height:34,borderRadius:8,background:"rgba(255,255,255,0.08)",border:"none",color:T.text,fontSize:18,cursor:"pointer"}}>−</button>
+                <div style={{fontSize:22,fontWeight:700,fontFamily:"'DM Mono',monospace",minWidth:32,textAlign:"center"}}>{servings}</div>
+                <button onClick={()=>setServings(s=>s+1)} style={{width:34,height:34,borderRadius:8,background:"rgba(255,255,255,0.08)",border:"none",color:T.text,fontSize:18,cursor:"pointer"}}>+</button>
+                <div style={{fontSize:13,color:T.muted}}>servings</div>
+              </div>
+            </div>
+
+            {/* Ingredients list */}
+            <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>Ingredients ({ingredients.length})</div>
+            {ingredients.map((ing,i)=>(
+              <div key={i} style={{...cs,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div><div style={{fontSize:13,fontWeight:600}}>{ing.name}</div><div style={{fontSize:11,color:T.muted}}>{ing.grams}{ing.unit} · {ing.calories} kcal</div></div>
+                <button onClick={()=>setIngredients(p=>p.filter((_,j)=>j!==i))} style={{background:"none",border:"none",color:T.dim,fontSize:18,cursor:"pointer"}}>×</button>
+              </div>
+            ))}
+
+            {/* Add ingredient */}
+            <div style={cs}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em"}}>Add Ingredient</div>
+                <button onClick={()=>setShowScannerInner(true)} style={{background:"rgba(56,189,248,0.12)",border:"1px solid rgba(56,189,248,0.3)",borderRadius:8,padding:"4px 10px",color:T.green,fontSize:11,fontWeight:600,cursor:"pointer"}}>⬛ Scan Barcode</button>
+              </div>
+              <input value={sq} onChange={e=>setSq(e.target.value)} placeholder="Search foods…" style={{...inp,marginBottom:8}}/>
+
+              {/* Recent foods — shown when search is empty */}
+              {!sq&&recentFoods&&recentFoods.length>0&&(
+                <div>
+                  <div style={{fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>🕐 Recently Used</div>
+                  {recentFoods.slice(0,6).map((f,i)=>(
+                    <button key={i} onClick={()=>addIngredient(f)}
+                      style={{width:"100%",background:"none",border:"none",borderBottom:`1px solid rgba(255,255,255,0.05)`,padding:"8px 0",cursor:"pointer",textAlign:"left",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <div>
+                        <div style={{fontSize:13,color:T.text}}>{f.name}{f.custom?" ⭐":""}</div>
+                        <div style={{fontSize:10,color:T.muted}}>per 100{f.unit}</div>
+                      </div>
+                      <div style={{fontSize:11,color:T.green,fontFamily:"'DM Mono',monospace"}}>{f.cal100} kcal</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Search results */}
+              {sq&&(
+                <div style={{maxHeight:180,overflowY:"auto"}}>
+                  {filtered.length===0&&<div style={{fontSize:12,color:T.dim,padding:"8px 0"}}>No foods found</div>}
+                  {filtered.map(f=>(
+                    <button key={f.id} onClick={()=>addIngredient(f)}
+                      style={{width:"100%",background:"none",border:"none",borderBottom:`1px solid rgba(255,255,255,0.05)`,padding:"8px 0",cursor:"pointer",textAlign:"left",display:"flex",justifyContent:"space-between"}}>
+                      <div style={{fontSize:13,color:T.text}}>{f.name}{f.custom?" ⭐":""}</div>
+                      <div style={{fontSize:11,color:T.green,fontFamily:"'DM Mono',monospace"}}>{f.cal100}/100{f.unit}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Per serving preview */}
+            {ingredients.length>0&&(
+              <div style={{...cs,background:"rgba(56,189,248,0.05)",border:"1px solid rgba(56,189,248,0.15)"}}>
+                <div style={{fontSize:11,color:T.green,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10}}>Per Serving</div>
+                <MRow o={perSrv}/>
+              </div>
+            )}
+
+            <button onClick={save} disabled={!rName.trim()||!ingredients.length}
+              style={{...btn(rName.trim()&&ingredients.length?T.green:"rgba(255,255,255,0.08)",rName.trim()&&ingredients.length?"#000":T.dim),width:"100%",padding:13,fontSize:14,marginTop:4}}>
+              {editRec?"Save Changes":"Save Recipe"}
+            </button>
+          </>
+        )}
+
+        {/* DETAIL VIEW */}
+        {view==="detail"&&editRec&&(
+          <>
+            <div style={{...cs,background:"rgba(56,189,248,0.05)",border:"1px solid rgba(56,189,248,0.15)"}}>
+              <div style={{fontWeight:700,fontSize:16,marginBottom:2}}>{editRec.name}</div>
+              <div style={{fontSize:12,color:T.muted,marginBottom:10}}>{editRec.servings} servings</div>
+              <MRow o={editRec.perServing}/>
+            </div>
+            {editRec.ingredients.map((ing,i)=>(
+              <div key={i} style={{...cs,display:"flex",justifyContent:"space-between"}}>
+                <div style={{fontSize:13,fontWeight:500}}>{ing.name}</div>
+                <div style={{fontSize:12,color:T.muted,fontFamily:"'DM Mono',monospace"}}>{ing.grams}{ing.unit}</div>
+              </div>
+            ))}
+            {activeMeal&&(
+              <div style={cs}>
+                <div style={{fontSize:12,color:T.muted,marginBottom:10}}>Log to {activeMeal}</div>
+                <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
+                  <button onClick={()=>setSrvToLog(s=>Math.max(0.5,Math.round((s-0.5)*2)/2))} style={{width:34,height:34,borderRadius:8,background:"rgba(255,255,255,0.08)",border:"none",color:T.text,fontSize:18,cursor:"pointer"}}>−</button>
+                  <div style={{fontSize:20,fontWeight:700,fontFamily:"'DM Mono',monospace",minWidth:32,textAlign:"center"}}>{srvToLog}</div>
+                  <button onClick={()=>setSrvToLog(s=>Math.round((s+0.5)*2)/2)} style={{width:34,height:34,borderRadius:8,background:"rgba(255,255,255,0.08)",border:"none",color:T.text,fontSize:18,cursor:"pointer"}}>+</button>
+                </div>
+                <button onClick={()=>onLogRecipe(editRec,srvToLog)} style={{...btn(),width:"100%",padding:11,fontSize:13}}>Log {srvToLog} serving{srvToLog!==1?"s":""} → {activeMeal}</button>
+              </div>
+            )}
+            <div style={{display:"flex",gap:8,marginTop:4}}>
+              <button onClick={()=>startEdit(editRec)} style={{...btn("rgba(255,255,255,0.07)",T.muted),flex:1,padding:10}}>Edit</button>
+              <button onClick={()=>{setRecipes(p=>p.filter(r=>r.id!==editRec.id));setView("list");}} style={{...btn("rgba(239,68,68,0.12)",T.red),flex:1,padding:10}}>Delete</button>
+            </div>
+          </>
+        )}
+      </div>
+
+      {pickFood&&<GramPicker food={pickFood} onConfirm={s=>{setIngredients(p=>[...p,{...s,uid:Date.now()}]);setPickFood(null);}} onClose={()=>setPickFood(null)}/>}
+      {showScannerInner&&<BarcodeScanner onFood={f=>{setPickFood(f);setShowScannerInner(false);}} onClose={()=>setShowScannerInner(false)}/>}
+    </div>
+  );
 }
 // ─── ClientApp ────────────────────────────────────────────────────────────────
 function ClientApp({user,onLogout,hideSignOut,setCoachMode}) {
@@ -992,6 +1162,7 @@ function ClientApp({user,onLogout,hideSignOut,setCoachMode}) {
   const [lastSync,setLastSync]=useState(null);
   const [customFoods,setCustomFoods]=useState([]);
   const [recipes,setRecipes]=useState([]);
+  const [recentFoods,setRecentFoods]=useState([]);
   const [showRecipes,setShowRecipes]=useState(false);
   const [showScanner,setShowScanner]=useState(false);
   const [showGraph,setShowGraph]=useState(false);
@@ -1051,7 +1222,16 @@ function ClientApp({user,onLogout,hideSignOut,setCoachMode}) {
     return()=>clearTimeout(syncTimer.current);
   },[diary,habits,waterGlasses]);
 
-  const addFood=s=>{setDiary(prev=>({...prev,[activeMeal]:[...prev[activeMeal],{...s,uid:Date.now()+Math.random()}]}));setPickingFood(null);setShowSearch(false);setSearchQuery("");};
+  const addFood=s=>{
+    setDiary(prev=>({...prev,[activeMeal]:[...prev[activeMeal],{...s,uid:Date.now()+Math.random()}]}));
+    // Track recently used foods (deduplicated, max 10)
+    const baseFood=allFoods.find(f=>f.id===s.id)||s;
+    setRecentFoods(prev=>{
+      const filtered=prev.filter(f=>f.id!==baseFood.id);
+      return [baseFood,...filtered].slice(0,10);
+    });
+    setPickingFood(null); setShowSearch(false); setSearchQuery("");
+  };
   const removeFood=(meal,uid)=>setDiary(prev=>({...prev,[meal]:prev[meal].filter(f=>f.uid!==uid)}));
   const logRecipe=(recipe,count)=>{const e={uid:Date.now()+Math.random(),name:`${recipe.name} (${count} srv)`,calories:Math.round(recipe.perServing.calories*count),protein:Math.round(recipe.perServing.protein*count*10)/10,carbs:Math.round(recipe.perServing.carbs*count*10)/10,fat:Math.round(recipe.perServing.fat*count*10)/10,grams:null,unit:"srv"};setDiary(prev=>({...prev,[activeMeal]:[...prev[activeMeal],e]}));setShowRecipes(false);setShowSearch(false);};
 
@@ -1245,6 +1425,22 @@ function ClientApp({user,onLogout,hideSignOut,setCoachMode}) {
             </div>
             <input autoFocus value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder="Search foods..." style={{...inp,marginBottom:10}}/>
             <div style={{overflowY:"auto",flex:1}}>
+              {/* Recent foods when search is empty */}
+              {!searchQuery&&recentFoods.length>0&&(
+                <div style={{marginBottom:8}}>
+                  <div style={{fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em",padding:"4px 0 8px"}}>🕐 Recently Used</div>
+                  {recentFoods.map((food,i)=>(
+                    <button key={i} onClick={()=>setPickingFood(food)} style={{width:"100%",background:"rgba(56,189,248,0.04)",border:"none",borderBottom:`1px solid rgba(255,255,255,0.05)`,padding:"11px 0",cursor:"pointer",textAlign:"left",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <div>
+                        <div style={{fontSize:13,color:T.text,fontWeight:500}}>{food.custom?"⭐ ":""}{food.name}</div>
+                        <div style={{fontSize:11,color:T.muted,marginTop:1}}>per 100{food.unit}</div>
+                      </div>
+                      <div style={{fontSize:13,fontWeight:600,color:T.green,fontFamily:"'DM Mono',monospace"}}>{food.cal100}</div>
+                    </button>
+                  ))}
+                  <div style={{fontSize:10,color:T.dim,padding:"8px 0 4px"}}>All foods</div>
+                </div>
+              )}
               {filteredFoods.map(food=>(
                 <button key={food.id} onClick={()=>setPickingFood(food)} style={{width:"100%",background:"none",border:"none",borderBottom:`1px solid rgba(255,255,255,0.05)`,padding:"11px 0",cursor:"pointer",textAlign:"left",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                   <div>
@@ -1260,7 +1456,7 @@ function ClientApp({user,onLogout,hideSignOut,setCoachMode}) {
       )}
 
       {pickingFood&&<GramPicker food={pickingFood} onConfirm={addFood} onClose={()=>setPickingFood(null)}/>}
-      {showRecipes&&<RecipeBuilder recipes={recipes} setRecipes={setRecipes} onClose={()=>setShowRecipes(false)} onLogRecipe={logRecipe} activeMeal={activeMeal} allFoods={allFoods}/>}
+      {showRecipes&&<RecipeBuilder recipes={recipes} setRecipes={setRecipes} onClose={()=>setShowRecipes(false)} onLogRecipe={logRecipe} activeMeal={activeMeal} allFoods={allFoods} recentFoods={recentFoods}/>}
       {showScanner&&<BarcodeScanner onFood={f=>{setPickingFood(f);setShowScanner(false);}} onClose={()=>setShowScanner(false)}/>}
       {showGraph&&<ProgressGraph userId={user.id} onClose={()=>setShowGraph(false)}/>}
       {showMsg&&<MessagingPanel myId={user.id} myName={user.name} otherIds={["coach1"]} isCoach={false} onClose={()=>{setShowMsg(false);setUnreadMsgs(0);}}/>}
@@ -1305,4 +1501,3 @@ export default function App() {
   }
 
   return <ClientApp user={session} onLogout={()=>setSession(null)}/>;
-}
