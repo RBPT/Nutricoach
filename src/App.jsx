@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+aimport { useState, useEffect, useCallback, useRef } from "react";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const BASE_FOODS = [
@@ -461,7 +461,7 @@ function CoachDashboard({coach,onLogout,setCoachMode}) {
   const [lastRefresh,setLastRefresh]=useState(null);
   const [showMsg,setShowMsg]=useState(false);
   const [showPhotos,setShowPhotos]=useState(false);
-  const [showCheckin,setShowCheckin]=useState(null);
+  const [showInvoicesCoach,setShowInvoicesCoach]=useState(false);
   const [editingGoals,setEditingGoals]=useState(false);
   const [draftGoals,setDraftGoals]=useState({});
   const [savingGoals,setSavingGoals]=useState(false);
@@ -553,12 +553,18 @@ function CoachDashboard({coach,onLogout,setCoachMode}) {
         {/* ── CLIENTS TAB ── */}
         {!loading&&coachTab==="clients"&&!selectedClient&&(
           <>
-            {/* Message button */}
-            <button onClick={()=>setShowMsg(true)} style={{width:"100%",...cs,cursor:"pointer",textAlign:"left",display:"flex",alignItems:"center",gap:12,background:"rgba(139,92,246,0.06)",border:"1px solid rgba(139,92,246,0.2)"}}>
-              <div style={{fontSize:24}}>💬</div>
-              <div style={{flex:1}}><div style={{fontWeight:600,fontSize:14,color:T.purple}}>Messages</div><div style={{fontSize:11,color:T.muted}}>Chat with your clients</div></div>
-              {unreadMsgs>0&&<div style={{background:T.red,color:"#fff",borderRadius:10,padding:"2px 8px",fontSize:12,fontWeight:700}}>{unreadMsgs}</div>}
-            </button>
+            {/* Action buttons row */}
+            <div style={{display:"flex",gap:8,marginBottom:14}}>
+              <button onClick={()=>setShowMsg(true)} style={{flex:2,...cs,cursor:"pointer",textAlign:"left",display:"flex",alignItems:"center",gap:10,background:"rgba(139,92,246,0.06)",border:"1px solid rgba(139,92,246,0.2)",marginBottom:0}}>
+                <div style={{fontSize:20}}>💬</div>
+                <div style={{flex:1}}><div style={{fontWeight:600,fontSize:13,color:T.purple}}>Messages</div><div style={{fontSize:10,color:T.muted}}>Chat with clients</div></div>
+                {unreadMsgs>0&&<div style={{background:T.red,color:"#fff",borderRadius:10,padding:"2px 7px",fontSize:11,fontWeight:700}}>{unreadMsgs}</div>}
+              </button>
+              <button onClick={()=>setShowInvoicesCoach(true)} style={{flex:1,...cs,cursor:"pointer",textAlign:"center",background:"rgba(245,158,11,0.06)",border:"1px solid rgba(245,158,11,0.2)",marginBottom:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4}}>
+                <div style={{fontSize:20}}>💳</div>
+                <div style={{fontSize:11,fontWeight:600,color:T.amber}}>Invoices</div>
+              </button>
+            </div>
 
             <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10}}>Your Clients — Today</div>
             {CLIENT_LIST.map(client=>{
@@ -727,6 +733,7 @@ function CoachDashboard({coach,onLogout,setCoachMode}) {
 
       {showMsg&&<MessagingPanel myId={coach.id} myName={coach.name} otherIds={CLIENT_LIST.map(c=>c.id)} isCoach={true} onClose={()=>{setShowMsg(false);loadAll();}}/>}
       {showPhotos&&selected&&<ProgressPhotos userId={selected.id} isCoach={true} clientName={selected.name} onClose={()=>setShowPhotos(false)}/>}
+      {showInvoicesCoach&&<InvoicePanel userId="coach1" isCoach={true} clientList={CLIENT_LIST} onClose={()=>setShowInvoicesCoach(false)}/>}
       {showCheckin&&<div style={{position:"fixed",inset:0,background:T.bg,zIndex:350,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",color:T.muted,fontSize:14}}>
         <div style={{marginBottom:12}}>This view is for client check-ins. Ask {selected?.name} to submit via their app.</div>
         <button onClick={()=>setShowCheckin(null)} style={btn()}>Close</button>
@@ -1147,6 +1154,400 @@ function RecipeBuilder({recipes,setRecipes,onClose,onLogRecipe,activeMeal,allFoo
     </div>
   );
 }
+// ─── AIChat ───────────────────────────────────────────────────────────────────
+function AIChat({user,goals,totals,diary,onClose}) {
+  const [messages,setMessages]=useState([{role:"assistant",text:`Hey ${user.name.split(" ")[0]}! 👋 I'm your RBPT nutrition AI. Ask me anything about your diet, macros, meal ideas, or how to reach your goals!`}]);
+  const [input,setInput]=useState("");
+  const [loading,setLoading]=useState(false);
+  const bottomRef=useRef(null);
+
+  useEffect(()=>bottomRef.current?.scrollIntoView({behavior:"smooth"}),[messages]);
+
+  const send=async()=>{
+    if(!input.trim()||loading) return;
+    const userMsg=input.trim();
+    setInput("");
+    setMessages(prev=>[...prev,{role:"user",text:userMsg}]);
+    setLoading(true);
+    try {
+      const allFoods=Object.entries(diary).map(([meal,foods])=>foods.map(f=>`${meal}: ${f.name} (${f.calories} kcal)`)).flat().join(", ")||"Nothing logged yet";
+      const system=`You are an expert nutrition coach AI for RBPT Performance Coaching. 
+The client's name is ${user.name}.
+Their daily goals: ${goals.calories} kcal, ${goals.protein}g protein, ${goals.carbs}g carbs, ${goals.fat}g fat.
+Today so far: ${totals.calories} kcal, ${totals.protein}g protein, ${totals.carbs}g carbs, ${totals.fat}g fat.
+Foods logged today: ${allFoods}.
+Give practical, specific, encouraging advice. Keep responses concise and conversational. Use their name occasionally.`;
+      const res=await fetch("https://api.anthropic.com/v1/messages",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,system,messages:[...messages.filter(m=>m.role!=="assistant"||messages.indexOf(m)>0).map(m=>({role:m.role==="assistant"?"assistant":"user",content:m.text})),{role:"user",content:userMsg}]})
+      });
+      const data=await res.json();
+      const reply=data.content?.[0]?.text||"Sorry, I couldn't get a response right now.";
+      setMessages(prev=>[...prev,{role:"assistant",text:reply}]);
+    } catch(e) {
+      setMessages(prev=>[...prev,{role:"assistant",text:"Sorry, something went wrong. Try again!"}]);
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div style={{position:"fixed",inset:0,background:T.bg,zIndex:350,display:"flex",flexDirection:"column",maxWidth:420,margin:"0 auto"}}>
+      <div style={{padding:"20px 20px 0",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+        <div>
+          <div style={{fontSize:12,color:T.green,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:2}}>RBPT AI</div>
+          <div style={{fontSize:20,fontWeight:700}}>Nutrition Coach 🤖</div>
+        </div>
+        <button onClick={onClose} style={{background:"rgba(255,255,255,0.06)",border:`1px solid ${T.border}`,borderRadius:10,width:36,height:36,color:T.muted,fontSize:18,cursor:"pointer"}}>×</button>
+      </div>
+      {/* Today's summary bar */}
+      <div style={{margin:"8px 16px",background:"rgba(56,189,248,0.06)",border:"1px solid rgba(56,189,248,0.15)",borderRadius:12,padding:"8px 14px",display:"flex",justifyContent:"space-around"}}>
+        {[{l:"Cal",v:totals.calories,u:"",c:T.green},{l:"Protein",v:totals.protein,u:"g",c:T.blue},{l:"Carbs",v:totals.carbs,u:"g",c:T.amber},{l:"Fat",v:totals.fat,u:"g",c:T.red}].map(m=>(
+          <div key={m.l} style={{textAlign:"center"}}>
+            <div style={{fontSize:13,fontWeight:700,color:m.c,fontFamily:"'DM Mono',monospace"}}>{m.v}{m.u}</div>
+            <div style={{fontSize:9,color:T.muted}}>{m.l}</div>
+          </div>
+        ))}
+      </div>
+      {/* Messages */}
+      <div style={{flex:1,overflowY:"auto",padding:"8px 16px"}}>
+        {messages.map((m,i)=>(
+          <div key={i} style={{display:"flex",justifyContent:m.role==="user"?"flex-end":"flex-start",marginBottom:10}}>
+            <div style={{maxWidth:"82%"}}>
+              {m.role==="assistant"&&<div style={{fontSize:10,color:T.muted,marginBottom:3,marginLeft:4}}>RBPT AI</div>}
+              <div style={{background:m.role==="user"?T.green:"rgba(255,255,255,0.07)",color:m.role==="user"?"#000":T.text,borderRadius:m.role==="user"?"16px 16px 4px 16px":"16px 16px 16px 4px",padding:"10px 14px",fontSize:13,lineHeight:1.5,whiteSpace:"pre-wrap"}}>
+                {m.text}
+              </div>
+            </div>
+          </div>
+        ))}
+        {loading&&(
+          <div style={{display:"flex",gap:6,padding:"10px 14px",alignItems:"center"}}>
+            {[0,1,2].map(i=>(<div key={i} style={{width:7,height:7,borderRadius:"50%",background:T.green,animation:`bounce 0.8s ${i*0.15}s infinite`}}/>))}
+          </div>
+        )}
+        <div ref={bottomRef}/>
+      </div>
+      {/* Quick prompts */}
+      <div style={{padding:"6px 16px",display:"flex",gap:6,overflowX:"auto"}}>
+        {["What should I eat for dinner?","Am I hitting my protein?","How do I speed up fat loss?","Best pre-workout meal?"].map(q=>(
+          <button key={q} onClick={()=>{setInput(q);}} style={{background:"rgba(255,255,255,0.06)",border:`1px solid ${T.border}`,borderRadius:20,padding:"5px 12px",color:T.muted,fontSize:11,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>{q}</button>
+        ))}
+      </div>
+      {/* Input */}
+      <div style={{padding:"10px 16px 24px",borderTop:`1px solid ${T.border}`,background:T.bg2,display:"flex",gap:8}}>
+        <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&send()}
+          placeholder="Ask your nutrition coach…" style={{...inp,flex:1}}/>
+        <button onClick={send} disabled={!input.trim()||loading}
+          style={{...btn(input.trim()&&!loading?T.green:"rgba(255,255,255,0.06)",input.trim()&&!loading?"#000":T.dim),padding:"10px 14px",flexShrink:0}}>
+          ➤
+        </button>
+      </div>
+      <style>{`@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}`}</style>
+    </div>
+  );
+}
+
+// ─── Invoices ─────────────────────────────────────────────────────────────────
+function InvoicePanel({userId,isCoach,clientList,onClose}) {
+  const [invoices,setInvoices]=useState([]);
+  const [creating,setCreating]=useState(false);
+  const [form,setForm]=useState({clientId:"",description:"",amount:"",dueDate:"",notes:""});
+  const [saving,setSaving]=useState(false);
+  const set=(k,v)=>setForm(p=>({...p,[k]:v}));
+
+  useEffect(()=>{
+    const load=async()=>{
+      const key=isCoach?"coach_invoices:coach1":`client_invoices:${userId}`;
+      const data=await store.get(key)||[];
+      setInvoices(data);
+    };
+    load();
+  },[]);
+
+  const saveInvoice=async()=>{
+    if(!form.description||!form.amount) return;
+    setSaving(true);
+    const inv={id:Date.now(),clientId:form.clientId,description:form.description,amount:parseFloat(form.amount),dueDate:form.dueDate,notes:form.notes,status:"unpaid",createdAt:ts(),invoiceNo:`INV-${Date.now().toString().slice(-5)}`};
+    const coachKey="coach_invoices:coach1";
+    const clientKey=`client_invoices:${form.clientId}`;
+    const coachInvs=await store.get(coachKey)||[];
+    const clientInvs=await store.get(clientKey)||[];
+    await store.set(coachKey,[inv,...coachInvs]);
+    await store.set(clientKey,[inv,...clientInvs]);
+    setInvoices(p=>[inv,...p]);
+    setCreating(false);
+    setForm({clientId:"",description:"",amount:"",dueDate:"",notes:""});
+    setSaving(false);
+  };
+
+  const markPaid=async(invId)=>{
+    const update=invoices.map(i=>i.id===invId?{...i,status:"paid",paidAt:ts()}:i);
+    setInvoices(update);
+    const key=isCoach?"coach_invoices:coach1":`client_invoices:${userId}`;
+    await store.set(key,update);
+    // Also update client copy
+    if(isCoach){
+      const inv=invoices.find(i=>i.id===invId);
+      if(inv){const clientKey=`client_invoices:${inv.clientId}`;const ci=await store.get(clientKey)||[];await store.set(clientKey,ci.map(i=>i.id===invId?{...i,status:"paid",paidAt:ts()}:i));}
+    }
+  };
+
+  const getClientName=(id)=>clientList?.find(c=>c.id===id)?.name||id;
+  const unpaid=invoices.filter(i=>i.status==="unpaid");
+  const paid=invoices.filter(i=>i.status==="paid");
+
+  return (
+    <div style={{position:"fixed",inset:0,background:T.bg,zIndex:350,display:"flex",flexDirection:"column",maxWidth:420,margin:"0 auto"}}>
+      <div style={{padding:"20px 20px 0",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+        <div><div style={{fontSize:12,color:T.green,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:2}}>Finance</div><div style={{fontSize:20,fontWeight:700}}>Invoices 💳</div></div>
+        <div style={{display:"flex",gap:8}}>
+          {isCoach&&!creating&&<button onClick={()=>setCreating(true)} style={btn()}>+ New</button>}
+          <button onClick={onClose} style={{background:"rgba(255,255,255,0.06)",border:`1px solid ${T.border}`,borderRadius:10,width:36,height:36,color:T.muted,fontSize:18,cursor:"pointer"}}>×</button>
+        </div>
+      </div>
+      <div style={{flex:1,overflowY:"auto",padding:"0 16px 32px"}}>
+        {/* Create form */}
+        {isCoach&&creating&&(
+          <div style={cs}>
+            <div style={{fontSize:13,fontWeight:700,marginBottom:14}}>New Invoice</div>
+            <div style={{marginBottom:10}}>
+              <div style={{fontSize:11,color:T.muted,marginBottom:5}}>Client</div>
+              <select value={form.clientId} onChange={e=>set("clientId",e.target.value)} style={{...inp,background:"rgba(255,255,255,0.06)"}}>
+                <option value="">Select client…</option>
+                {clientList?.map(c=>(<option key={c.id} value={c.id}>{c.name}</option>))}
+              </select>
+            </div>
+            <div style={{marginBottom:10}}>
+              <div style={{fontSize:11,color:T.muted,marginBottom:5}}>Description</div>
+              <input value={form.description} onChange={e=>set("description",e.target.value)} placeholder="e.g. Monthly coaching — April" style={inp}/>
+            </div>
+            <div style={{display:"flex",gap:10,marginBottom:10}}>
+              <div style={{flex:1}}>
+                <div style={{fontSize:11,color:T.muted,marginBottom:5}}>Amount ($)</div>
+                <input type="number" value={form.amount} onChange={e=>set("amount",e.target.value)} placeholder="0.00" style={{...inp,fontFamily:"'DM Mono',monospace"}}/>
+              </div>
+              <div style={{flex:1}}>
+                <div style={{fontSize:11,color:T.muted,marginBottom:5}}>Due Date</div>
+                <input type="date" value={form.dueDate} onChange={e=>set("dueDate",e.target.value)} style={inp}/>
+              </div>
+            </div>
+            <div style={{marginBottom:14}}>
+              <div style={{fontSize:11,color:T.muted,marginBottom:5}}>Notes (optional)</div>
+              <textarea value={form.notes} onChange={e=>set("notes",e.target.value)} placeholder="Payment instructions, bank details…" style={{...inp,minHeight:64,resize:"vertical"}}/>
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={saveInvoice} disabled={!form.description||!form.amount||!form.clientId||saving}
+                style={{...btn(form.description&&form.amount&&form.clientId?T.green:"rgba(255,255,255,0.07)",form.description&&form.amount&&form.clientId?"#000":T.dim),flex:1,padding:11}}>{saving?"Saving…":"Send Invoice"}</button>
+              <button onClick={()=>setCreating(false)} style={{...btn("rgba(255,255,255,0.07)",T.muted),padding:11}}>Cancel</button>
+            </div>
+          </div>
+        )}
+        {/* Unpaid */}
+        {unpaid.length>0&&(
+          <>
+            <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10}}>Outstanding ({unpaid.length})</div>
+            {unpaid.map(inv=>(
+              <div key={inv.id} style={{...cs,border:"1px solid rgba(245,158,11,0.25)",background:"rgba(245,158,11,0.04)"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+                  <div>
+                    <div style={{fontSize:11,color:T.muted,fontFamily:"'DM Mono',monospace",marginBottom:2}}>{inv.invoiceNo}</div>
+                    <div style={{fontWeight:700,fontSize:15}}>{inv.description}</div>
+                    {isCoach&&<div style={{fontSize:12,color:T.muted}}>→ {getClientName(inv.clientId)}</div>}
+                  </div>
+                  <div style={{textAlign:"right"}}>
+                    <div style={{fontSize:20,fontWeight:700,color:T.amber,fontFamily:"'DM Mono',monospace"}}>${inv.amount.toFixed(2)}</div>
+                    {inv.dueDate&&<div style={{fontSize:10,color:T.muted}}>Due {inv.dueDate}</div>}
+                  </div>
+                </div>
+                {inv.notes&&<div style={{fontSize:12,color:T.muted,marginBottom:10,lineHeight:1.4}}>{inv.notes}</div>}
+                {isCoach&&<button onClick={()=>markPaid(inv.id)} style={{...btn("rgba(34,197,94,0.15)","#4ade80"),width:"100%",padding:9,fontSize:12,border:"1px solid rgba(34,197,94,0.3)"}}>✓ Mark as Paid</button>}
+                {!isCoach&&<div style={{fontSize:11,background:"rgba(245,158,11,0.1)",borderRadius:8,padding:"6px 10px",color:T.amber}}>⚠️ Payment outstanding — contact your coach for payment details</div>}
+              </div>
+            ))}
+          </>
+        )}
+        {/* Paid */}
+        {paid.length>0&&(
+          <>
+            <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10,marginTop:4}}>Paid ({paid.length})</div>
+            {paid.map(inv=>(
+              <div key={inv.id} style={{...cs,opacity:0.7}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <div>
+                    <div style={{fontSize:11,color:T.muted,fontFamily:"'DM Mono',monospace"}}>{inv.invoiceNo}</div>
+                    <div style={{fontWeight:600,fontSize:14}}>{inv.description}</div>
+                    {isCoach&&<div style={{fontSize:11,color:T.muted}}>{getClientName(inv.clientId)}</div>}
+                  </div>
+                  <div style={{textAlign:"right"}}>
+                    <div style={{fontSize:16,fontWeight:700,color:T.green,fontFamily:"'DM Mono',monospace"}}>${inv.amount.toFixed(2)}</div>
+                    <div style={{fontSize:10,color:T.green}}>✓ Paid</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+        {invoices.length===0&&!creating&&(
+          <div style={{textAlign:"center",padding:"50px 0",color:T.dim}}>
+            <div style={{fontSize:44,marginBottom:10}}>💳</div>
+            <div style={{fontSize:14,color:T.muted,fontWeight:600,marginBottom:4}}>{isCoach?"No invoices yet":"No invoices from your coach yet"}</div>
+            {isCoach&&<div style={{fontSize:13}}>Tap + New to create your first invoice</div>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── GoalsSection ─────────────────────────────────────────────────────────────
+// BMR calc: Mifflin-St Jeor
+const calcBMR=(weight,height,age,sex)=>{
+  if(!weight||!height||!age) return null;
+  const w=parseFloat(weight),h=parseFloat(height),a=parseInt(age);
+  if(isNaN(w)||isNaN(h)||isNaN(a)) return null;
+  return sex==="female"?(10*w*0.453592)+(6.25*h*2.54)-(5*a)-161:(10*w*0.453592)+(6.25*h*2.54)-(5*a)+5;
+};
+const ACTIVITY_MULTIPLIERS={"Sedentary (desk job)":1.2,"Lightly Active (1-3x/week)":1.375,"Moderately Active (3-5x/week)":1.55,"Very Active (6-7x/week)":1.725,"Athlete (2x/day)":1.9};
+const GOAL_ADJUSTMENTS={"Aggressive Cut":-500,"Moderate Cut":-250,"Maintain":0,"Moderate Bulk":+250,"Aggressive Bulk":+500};
+
+function GoalsSection({userId,goals,setGoals,onClose}) {
+  const [profile,setProfile]=useState({weight:"",height:"",age:"",sex:"male",activity:"Moderately Active (3-5x/week)",goal:"Maintain"});
+  const [profileLog,setProfileLog]=useState([]);
+  const [saving,setSaving]=useState(false);
+  const [saved,setSaved]=useState(false);
+  const setP=(k,v)=>setProfile(p=>({...p,[k]:v}));
+
+  useEffect(()=>{
+    store.get(`profile:${userId}`).then(d=>{ if(d){setProfile(d.current||d);setProfileLog(d.log||[]);} });
+  },[userId]);
+
+  const bmr=calcBMR(profile.weight,profile.height,profile.age,profile.sex);
+  const tdee=bmr?Math.round(bmr*(ACTIVITY_MULTIPLIERS[profile.activity]||1.55)):null;
+  const targetCals=tdee?tdee+(GOAL_ADJUSTMENTS[profile.goal]||0):null;
+  const suggestedProtein=profile.weight?Math.round(parseFloat(profile.weight)*2.2*1.8):null;
+  const suggestedFat=targetCals?Math.round(targetCals*0.25/9):null;
+  const suggestedCarbs=targetCals&&suggestedProtein&&suggestedFat?Math.round((targetCals-(suggestedProtein*4)-(suggestedFat*9))/4):null;
+
+  const save=async()=>{
+    setSaving(true);
+    const entry={date:TODAY,weight:profile.weight,bmr:bmr?Math.round(bmr):null,tdee,targetCals,goal:profile.goal};
+    const newLog=[entry,...profileLog.filter(e=>e.date!==TODAY)].slice(0,90);
+    await store.set(`profile:${userId}`,{current:profile,log:newLog});
+    setProfileLog(newLog);
+    // Apply suggested macros to goals if user wants
+    if(targetCals) setGoals({calories:targetCals,protein:suggestedProtein||goals.protein,carbs:suggestedCarbs||goals.carbs,fat:suggestedFat||goals.fat});
+    setSaving(false);
+    setSaved(true);
+    setTimeout(()=>setSaved(false),3000);
+  };
+
+  const goalColor=profile.goal.includes("Cut")?T.red:profile.goal==="Maintain"?T.green:T.amber;
+
+  return (
+    <div style={{position:"fixed",inset:0,background:T.bg,zIndex:350,display:"flex",flexDirection:"column",maxWidth:420,margin:"0 auto"}}>
+      <div style={{padding:"20px 20px 0",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+        <div><div style={{fontSize:12,color:T.green,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:2}}>My Goals</div><div style={{fontSize:20,fontWeight:700}}>Goal & BMR Tracker 🎯</div></div>
+        <button onClick={onClose} style={{background:"rgba(255,255,255,0.06)",border:`1px solid ${T.border}`,borderRadius:10,width:36,height:36,color:T.muted,fontSize:18,cursor:"pointer"}}>×</button>
+      </div>
+      <div style={{flex:1,overflowY:"auto",padding:"0 16px 32px"}}>
+
+        {/* Goal type selector */}
+        <div style={cs}>
+          <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:12}}>Current Goal</div>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {Object.keys(GOAL_ADJUSTMENTS).map(g=>(
+              <button key={g} onClick={()=>setP("goal",g)}
+                style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:profile.goal===g?`${goalColor}15`:"rgba(255,255,255,0.04)",border:`1.5px solid ${profile.goal===g?goalColor:T.border}`,borderRadius:12,padding:"11px 14px",cursor:"pointer",transition:"all 0.2s"}}>
+                <div style={{fontWeight:600,fontSize:14,color:profile.goal===g?goalColor:T.text}}>{g}</div>
+                <div style={{fontSize:12,color:T.muted,fontFamily:"'DM Mono',monospace"}}>{GOAL_ADJUSTMENTS[g]>0?"+":""}{GOAL_ADJUSTMENTS[g]} kcal</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Profile for BMR */}
+        <div style={cs}>
+          <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:12}}>Your Stats (for BMR)</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+            <div>
+              <div style={{fontSize:11,color:T.muted,marginBottom:5}}>Weight (lbs)</div>
+              <input type="number" value={profile.weight} onChange={e=>setP("weight",e.target.value)} placeholder="e.g. 175" style={{...inp,fontFamily:"'DM Mono',monospace"}}/>
+            </div>
+            <div>
+              <div style={{fontSize:11,color:T.muted,marginBottom:5}}>Height (inches)</div>
+              <input type="number" value={profile.height} onChange={e=>setP("height",e.target.value)} placeholder='e.g. 70 (5\'10")' style={{...inp,fontFamily:"'DM Mono',monospace"}}/>
+            </div>
+            <div>
+              <div style={{fontSize:11,color:T.muted,marginBottom:5}}>Age</div>
+              <input type="number" value={profile.age} onChange={e=>setP("age",e.target.value)} placeholder="e.g. 28" style={{...inp,fontFamily:"'DM Mono',monospace"}}/>
+            </div>
+            <div>
+              <div style={{fontSize:11,color:T.muted,marginBottom:5}}>Biological Sex</div>
+              <select value={profile.sex} onChange={e=>setP("sex",e.target.value)} style={{...inp,background:"rgba(255,255,255,0.06)"}}>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <div style={{fontSize:11,color:T.muted,marginBottom:5}}>Activity Level</div>
+            <select value={profile.activity} onChange={e=>setP("activity",e.target.value)} style={{...inp,background:"rgba(255,255,255,0.06)"}}>
+              {Object.keys(ACTIVITY_MULTIPLIERS).map(a=>(<option key={a}>{a}</option>))}
+            </select>
+          </div>
+        </div>
+
+        {/* BMR Results */}
+        {bmr&&(
+          <div style={{...cs,background:"rgba(56,189,248,0.05)",border:"1px solid rgba(56,189,248,0.2)"}}>
+            <div style={{fontSize:11,color:T.green,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:14}}>Your Calculated Numbers</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+              {[{l:"BMR",v:Math.round(bmr),desc:"Calories at rest",c:T.blue},{l:"TDEE",v:tdee,desc:"Total daily burn",c:T.purple},{l:"Target Calories",v:targetCals,desc:profile.goal,c:goalColor},{l:"Surplus/Deficit",v:(GOAL_ADJUSTMENTS[profile.goal]>=0?"+":"")+GOAL_ADJUSTMENTS[profile.goal],desc:"Daily adjustment",c:GOAL_ADJUSTMENTS[profile.goal]<0?T.red:GOAL_ADJUSTMENTS[profile.goal]>0?T.amber:T.green}].map(m=>(
+                <div key={m.l} style={{background:`${m.c}10`,border:`1px solid ${m.c}22`,borderRadius:12,padding:"12px 10px",textAlign:"center"}}>
+                  <div style={{fontSize:18,fontWeight:700,color:m.c,fontFamily:"'DM Mono',monospace"}}>{m.v}</div>
+                  <div style={{fontSize:11,fontWeight:600,color:T.text,marginTop:2}}>{m.l}</div>
+                  <div style={{fontSize:9,color:T.muted,marginTop:2}}>{m.desc}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>Suggested Macros</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:14}}>
+              {[{l:"Protein",v:suggestedProtein,u:"g",c:T.blue},{l:"Carbs",v:suggestedCarbs,u:"g",c:T.amber},{l:"Fat",v:suggestedFat,u:"g",c:T.red}].map(m=>(
+                <div key={m.l} style={{textAlign:"center",background:`${m.c}10`,borderRadius:10,padding:"9px 6px"}}>
+                  <div style={{fontSize:16,fontWeight:700,color:m.c,fontFamily:"'DM Mono',monospace"}}>{m.v}{m.u}</div>
+                  <div style={{fontSize:9,color:T.muted}}>{m.l}</div>
+                </div>
+              ))}
+            </div>
+            {saved&&<div style={{fontSize:12,color:T.green,textAlign:"center",marginBottom:8}}>✓ Goals updated!</div>}
+            <button onClick={save} disabled={saving} style={{...btn(),width:"100%",padding:12,fontSize:14}}>{saving?"Saving…":"Apply These Goals to My Tracker"}</button>
+          </div>
+        )}
+
+        {/* BMR history */}
+        {profileLog.length>1&&(
+          <div style={cs}>
+            <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10}}>BMR History</div>
+            {profileLog.slice(0,8).map((e,i)=>(
+              <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderTop:i>0?`1px solid rgba(255,255,255,0.05)`:"none"}}>
+                <div>
+                  <div style={{fontSize:13,fontWeight:500}}>{e.date}</div>
+                  <div style={{fontSize:11,color:T.muted}}>{e.goal} · {e.weight}lbs</div>
+                </div>
+                <div style={{textAlign:"right"}}>
+                  <div style={{fontSize:13,fontWeight:700,color:T.green,fontFamily:"'DM Mono',monospace"}}>{e.targetCals} kcal</div>
+                  <div style={{fontSize:10,color:T.muted}}>BMR: {e.bmr}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── ClientApp ────────────────────────────────────────────────────────────────
 function ClientApp({user,onLogout,hideSignOut,setCoachMode}) {
   const [tab,setTab]=useState("dashboard");
@@ -1166,6 +1567,9 @@ function ClientApp({user,onLogout,hideSignOut,setCoachMode}) {
   const [showRecipes,setShowRecipes]=useState(false);
   const [showScanner,setShowScanner]=useState(false);
   const [showGraph,setShowGraph]=useState(false);
+  const [showAIChat,setShowAIChat]=useState(false);
+  const [showInvoices,setShowInvoices]=useState(false);
+  const [showGoals,setShowGoals]=useState(false);
   const [showMsg,setShowMsg]=useState(false);
   const [showCheckin,setShowCheckin]=useState(false);
   const [showPhotos,setShowPhotos]=useState(false);
@@ -1270,12 +1674,14 @@ function ClientApp({user,onLogout,hideSignOut,setCoachMode}) {
             <div style={{padding:"0 16px"}}>
               {/* Coach quick actions — hide when coach is in personal mode */}
               {!hideSignOut && (
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:12}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:12}}>
                 {[
                   {l:"💬 Coach",bg:"rgba(139,92,246,0.12)",c:T.purple,fn:()=>setShowMsg(true),badge:unreadMsgs},
-                  {l:"📋 Check-in",bg:"rgba(59,130,246,0.10)",c:T.blue,fn:()=>setShowCheckin(true)},
+                  {l:"🤖 AI Chat",bg:"rgba(56,189,248,0.10)",c:T.green,fn:()=>setShowAIChat(true)},
+                  {l:"📋 Check-in",bg:"rgba(99,102,241,0.10)",c:T.blue,fn:()=>setShowCheckin(true)},
                   {l:"📸 Photos",bg:"rgba(236,72,153,0.10)",c:T.pink,fn:()=>setShowPhotos(true)},
-                  {l:"📈 Progress",bg:"rgba(34,197,94,0.10)",c:T.green,fn:()=>setShowGraph(true)},
+                  {l:"📈 Progress",bg:"rgba(56,189,248,0.08)",c:T.green,fn:()=>setShowGraph(true)},
+                  {l:"🎯 My Goals",bg:"rgba(245,158,11,0.10)",c:T.amber,fn:()=>setShowGoals(true)},
                 ].map(a=>(
                   <button key={a.l} onClick={a.fn} style={{position:"relative",background:a.bg,border:`1px solid ${a.c}33`,borderRadius:12,padding:"10px 6px",color:a.c,fontSize:11,fontWeight:600,cursor:"pointer"}}>
                     {a.l}
@@ -1459,6 +1865,9 @@ function ClientApp({user,onLogout,hideSignOut,setCoachMode}) {
       {showRecipes&&<RecipeBuilder recipes={recipes} setRecipes={setRecipes} onClose={()=>setShowRecipes(false)} onLogRecipe={logRecipe} activeMeal={activeMeal} allFoods={allFoods} recentFoods={recentFoods}/>}
       {showScanner&&<BarcodeScanner onFood={f=>{setPickingFood(f);setShowScanner(false);}} onClose={()=>setShowScanner(false)}/>}
       {showGraph&&<ProgressGraph userId={user.id} onClose={()=>setShowGraph(false)}/>}
+      {showAIChat&&<AIChat user={user} goals={goals} totals={totals} diary={diary} onClose={()=>setShowAIChat(false)}/>}
+      {showInvoices&&<InvoicePanel userId={user.id} isCoach={false} onClose={()=>setShowInvoices(false)}/>}
+      {showGoals&&<GoalsSection userId={user.id} goals={goals} setGoals={setGoals} onClose={()=>setShowGoals(false)}/>}
       {showMsg&&<MessagingPanel myId={user.id} myName={user.name} otherIds={["coach1"]} isCoach={false} onClose={()=>{setShowMsg(false);setUnreadMsgs(0);}}/>}
       {showCheckin&&<WeeklyCheckIn userId={user.id} onClose={()=>setShowCheckin(false)}/>}
       {showPhotos&&<ProgressPhotos userId={user.id} isCoach={false} onClose={()=>setShowPhotos(false)}/>}
