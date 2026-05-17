@@ -1,4 +1,4 @@
-aimport { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const BASE_FOODS = [
