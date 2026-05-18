@@ -1476,7 +1476,7 @@ function GoalsSection({userId,goals,setGoals,onClose}) {
             </div>
             <div>
               <div style={{fontSize:11,color:T.muted,marginBottom:5}}>Height (inches)</div>
-              <input type="number" value={profile.height} onChange={e=>setP("height",e.target.value)} placeholder='e.g. 70 (5\'10")' style={{...inp,fontFamily:"'DM Mono',monospace"}}/>
+              <input type="number" value={profile.height} onChange={e=>setP("height",e.target.value)} placeholder="e.g. 70 inches" style={{...inp,fontFamily:"'DM Mono',monospace"}}/>
             </div>
             <div>
               <div style={{fontSize:11,color:T.muted,marginBottom:5}}>Age</div>
